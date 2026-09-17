@@ -221,6 +221,24 @@ function handleBlobUrl(message) {
   }
 }
 
+// Copy path: the offscreen document owns document.execCommand('copy'), which
+// the service worker cannot reach and the isolated-world content script's
+// navigator.clipboard is unreliable in. We ensure the offscreen document
+// exists, forward the text, and resolve with its {ok} ack. The document is
+// intentionally NOT closed here — a concurrent large download may still be
+// using it for Blob/ObjectURL work.
+async function handleCopy(text) {
+  if (typeof text !== "string") {
+    return { ok: false, reason: "missing-text" };
+  }
+  try {
+    await ensureOffscreenDocument();
+    return await chrome.runtime.sendMessage({ type: "TTC_COPY", text });
+  } catch (err) {
+    return { ok: false, reason: String((err && err.message) || err) };
+  }
+}
+
 // Response objects are not structured-cloneable across the message channel,
 // so read the body here and ship primitives. Shape matches what
 // content.js:fetchViaSW expects — {ok, status, text, contentType}.
@@ -269,6 +287,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleFetch(url).then(sendResponse);
       return true;
     }
+
+    case "TTC_COPY":
+      handleCopy(message.text).then(sendResponse);
+      return true;
 
     case "TTC_CREATE_BLOB":
       // This is handled by offscreen.js; if it ever reaches the SW, it means

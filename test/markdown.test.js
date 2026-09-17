@@ -124,6 +124,39 @@ test("jsonToMarkdown: returns empty string on invalid JSON string", () => {
   assert.equal(jsonToMarkdown("not json"), "");
 });
 
+test("jsonToMarkdown: prepends title as H1 heading", () => {
+  const data = {
+    entries: [
+      { speakerDisplayName: "Alice", startOffset: "0:00:01", endOffset: "0:00:04", text: "Hello world." },
+    ],
+  };
+  const md = jsonToMarkdown(data, "Standup 2026-09-17");
+  assert.ok(md.startsWith("# Standup 2026-09-17\n\n"), `unexpected prefix: ${JSON.stringify(md.slice(0, 40))}`);
+  assert.ok(md.includes("### Alice"));
+});
+
+test("jsonToMarkdown: falls back to \"Transcript\" when title is absent", () => {
+  const data = {
+    entries: [
+      { speakerDisplayName: "Alice", startOffset: "0:00:01", endOffset: "0:00:04", text: "Hello world." },
+    ],
+  };
+  const md = jsonToMarkdown(data);
+  assert.ok(md.startsWith("# Transcript\n\n"), `unexpected prefix: ${JSON.stringify(md.slice(0, 40))}`);
+});
+
+test("jsonToMarkdown: empty/null/whitespace title also falls back to \"Transcript\"", () => {
+  const data = {
+    entries: [
+      { speakerDisplayName: "Alice", startOffset: "0:00:01", endOffset: "0:00:04", text: "Hello world." },
+    ],
+  };
+  for (const title of [null, undefined, "", "   "]) {
+    const md = jsonToMarkdown(data, title);
+    assert.ok(md.startsWith("# Transcript\n\n"), `title=${JSON.stringify(title)} prefix=${JSON.stringify(md.slice(0, 40))}`);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // vttToMarkdown
 // ---------------------------------------------------------------------------
@@ -185,4 +218,12 @@ test("vttToMarkdown: multi-line payload", () => {
 test("vttToMarkdown: returns empty string for non-string input", () => {
   assert.equal(vttToMarkdown(null), "");
   assert.equal(vttToMarkdown(42), "");
+});
+
+test("vttToMarkdown: prepends title as H1 heading, falls back to \"Transcript\"", () => {
+  const vtt = `WEBVTT\n\n00:00:01.000 --> 00:00:04.000\n<v Alice>Hello.</v>`;
+  const titled = vttToMarkdown(vtt, "Sprint Review");
+  assert.ok(titled.startsWith("# Sprint Review\n\n"), `unexpected prefix: ${JSON.stringify(titled.slice(0, 40))}`);
+  const fallback = vttToMarkdown(vtt);
+  assert.ok(fallback.startsWith("# Transcript\n\n"), `unexpected prefix: ${JSON.stringify(fallback.slice(0, 40))}`);
 });

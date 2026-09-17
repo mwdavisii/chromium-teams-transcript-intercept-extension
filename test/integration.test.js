@@ -146,6 +146,20 @@ function clickDownloadButton(page) {
   });
 }
 
+function clickCopyButton(page) {
+  return page.evaluate(() => {
+    const host = Array.from(document.querySelectorAll('div')).find(
+      (d) => d.shadowRoot && d.shadowRoot.querySelector('[data-action="copy"]')
+    );
+    if (!host) throw new Error('TTC panel host not found');
+    const btn = host.shadowRoot.querySelector('[data-action="copy"]');
+    if (!btn) throw new Error('copy button not found');
+    if (btn.disabled) throw new Error('copy button is disabled (not ready)');
+    btn.click();
+    return true;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // The test.
 // ---------------------------------------------------------------------------
@@ -271,11 +285,66 @@ test('extension captures local transcript, shows ready UI, downloads markdown', 
     assert.ok(timestampMarkers.length >= 10, `expected >=10 "_[" timestamp markers, got ${timestampMarkers.length}`);
     assert.ok(speakers.size >= 2, `expected >=2 distinct speakers, got ${speakers.size}: ${[...speakers].join(', ')}`);
 
+    // Title threading: the metadata fixture carries displayName="Standup
+    // 2026-09-17", so the downloaded markdown must open with an H1 heading
+    // containing that title.
+    assert.ok(markdown.startsWith('# '), `markdown should start with '# ', got ${JSON.stringify(markdown.slice(0, 20))}`);
+    assert.ok(markdown.includes('Standup 2026-09-17'), 'markdown should contain the meeting title');
+
     // Non-fatal sanity: the downloaded file should match the UI's reported count.
     t.diagnostic(
       `downloaded ${downloaded}: ${headingLines.length} headings, ${timestampMarkers.length} ` +
         `timestamp markers, ${speakers.size} distinct speakers (UI reported ${entryCount} entries)`
     );
+
+    // Copy path: click "Copy .md". The deterministic ack assertion is the
+    // "Copied!" status — content.js only shows it when the offscreen document
+    // reports document.execCommand('copy') === true, which proves the TTC_COPY
+    // message round-tripped content.js -> background.js -> offscreen.js and
+    // back. When headless Chromium permits clipboard-read, we additionally read
+    // the clipboard back and assert its contents.
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: `https://${HOSTNAME}` });
+    await page.bringToFront();
+    await clickCopyButton(page);
+
+    // The copy round-trips through the service worker and offscreen document,
+    // so wait for the feedback status to settle before asserting.
+    try {
+      await page.waitForFunction(
+        () => {
+          const host = Array.from(document.querySelectorAll('div')).find(
+            (d) => d.shadowRoot && d.shadowRoot.querySelector('.ttc-status')
+          );
+          if (!host) return false;
+          const s = host.shadowRoot.querySelector('.ttc-status');
+          return !!s && /Copied|Copy failed/.test(s.textContent || '');
+        },
+        { timeout: 10000 }
+      );
+    } catch (e) {
+      // fall through — readStatus below reports the actual text
+    }
+    const statusAfterCopy = await readStatus(page);
+    assert.match(
+      statusAfterCopy || '',
+      /Copied/,
+      `expected "Copied!" feedback, got ${JSON.stringify(statusAfterCopy)}`
+    );
+
+    let copied = null;
+    try {
+      copied = await page.evaluate(() => navigator.clipboard.readText());
+    } catch (e) {
+      copied = null; // headless often denies clipboard-read — covered by the ack above
+    }
+    if (copied !== null) {
+      assert.ok(
+        copied.startsWith('# ') && copied.includes('Standup 2026-09-17'),
+        `clipboard did not contain the titled markdown (len=${copied.length})`
+      );
+    } else {
+      t.diagnostic('clipboard-read denied by headless browser; copy verified via "Copied!" ack');
+    }
   } finally {
     if (context) {
       try {

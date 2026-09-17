@@ -24,6 +24,7 @@ let metadataHandled = false;
 let transcriptRawText = null;
 let transcriptData = null;
 let transcriptFormat = null; // "json" | "vtt" | null
+let transcriptTitle = null; // displayName from metadata; null when absent
 
 // Once the captured transcript text has been converted to Markdown, this holds
 // the resulting string (or "" for a transcript with no captions). Drives the
@@ -56,14 +57,16 @@ const { jsonToMarkdown, vttToMarkdown } =
 // capture.
 const ui = (typeof window !== "undefined" && window.TTCUI && window.TTCUI.createFloatingUI)
   ? window.TTCUI.createFloatingUI({
-      onCopy: (md) => {
-        copyToClipboard(md);
+      onCopy: async (md) => {
+        const result = await copyToClipboard(md);
+        const ok = !!(result && result.ok);
+        ui.notify(ok ? "Copied!" : "Copy failed", ok ? "ready" : "error");
       },
       onDownload: (md) => {
         downloadFile(md, "transcript.md");
       },
     })
-  : { setStatus: () => {}, setReady: () => {} }; // no-op if ui.js not loaded
+  : { setStatus: () => {}, setReady: () => {}, notify: () => {} }; // no-op if ui.js not loaded
 
 // If no metadata arrives and no conversion completes within 30s, surface a hard
 // error so the user knows the page isn't a usable transcript tab.
@@ -229,9 +232,9 @@ async function fetchAndStoreTranscript(transcriptUrl) {
 function finishConversion() {
   let markdown = "";
   if (transcriptFormat === "json") {
-    markdown = jsonToMarkdown(transcriptRawText);
+    markdown = jsonToMarkdown(transcriptRawText, transcriptTitle);
   } else if (transcriptFormat === "vtt") {
-    markdown = vttToMarkdown(transcriptRawText);
+    markdown = vttToMarkdown(transcriptRawText, transcriptTitle);
   }
   convertedMarkdown = markdown;
 
@@ -251,6 +254,7 @@ function handleMetadataMessage(payload) {
     console.error("[TTC] metadata received but no usable URL found", payload);
     return;
   }
+  transcriptTitle = normalized.displayName;
   console.log("[TTC] transcript metadata captured", normalized);
 
   // Fire-and-forget: the listener must stay synchronous so we can keep
@@ -315,6 +319,9 @@ window.__TTC_STATE__ = {
   get transcriptFormat() {
     return transcriptFormat;
   },
+  get transcriptTitle() {
+    return transcriptTitle;
+  },
   get markdown() {
     return convertedMarkdown;
   },
@@ -324,20 +331,27 @@ window.__TTC_STATE__ = {
 // Delivery helpers. No side effects on load — callers invoke these from
 // user gestures (Wave 4+ UI) once the pipeline has produced text.
 
-// navigator.clipboard.writeText requires a user gesture; callers must invoke
-// this from a click handler, not from a timer or postMessage callback. We
-// intentionally do NOT fall back to document.execCommand('copy') — the
-// extension has clipboardWrite and writeText is the only non-deprecated
-// path in MV3 isolated worlds.
+// Route clipboard writes through the service worker. navigator.clipboard
+// .writeText in an isolated-world content script is unreliable (Chrome may not
+// count the click as a user gesture for the page's clipboard), so background.js
+// performs the copy in an offscreen document via document.execCommand('copy').
+// Errors are caught and returned as {ok:false, reason} — never throw on a user
+// gesture; the UI owns surfacing failures.
 async function copyToClipboard(text) {
   if (typeof text !== "string") {
     return { ok: false, reason: "missing-text" };
   }
   try {
-    await navigator.clipboard.writeText(text);
-    return { ok: true };
+    const response = await chrome.runtime.sendMessage({
+      type: "TTC_COPY",
+      text,
+    });
+    if (!response || typeof response !== "object") {
+      return { ok: false, reason: "no-response" };
+    }
+    return response;
   } catch (err) {
-    console.error("[TTC] clipboard write failed:", err);
+    console.error("[TTC] TTC_COPY sendMessage failed:", err);
     return { ok: false, reason: String((err && err.message) || err) };
   }
 }

@@ -47,6 +47,20 @@
     return text.replace(MD_SPECIAL_RE, "\\$1");
   }
 
+  // Meeting/transcript title fallback: missing, null, or whitespace-only
+  // titles render as "Transcript" rather than a blank heading.
+  function normalizeTitle(title) {
+    return typeof title === "string" && title.trim() ? title : "Transcript";
+  }
+
+  // Prepend an H1 heading to the rendered body. A transcript with no captions
+  // still yields "" (no dangling heading) so callers can distinguish "no
+  // content" from "content with a default title".
+  function withTitle(title, body) {
+    if (typeof body !== "string" || body.length === 0) return "";
+    return "# " + normalizeTitle(title) + "\n\n" + body;
+  }
+
   function normalizeSpaces(s) {
     return s.replace(/\s+/g, " ").trim();
   }
@@ -95,8 +109,10 @@
   }
 
   // Convert SharePoint/Stream transcript JSON text to Markdown.
-  // Accepts a JSON string or a pre-parsed object. Returns "" on garbage.
-  function jsonToMarkdown(jsonText) {
+  // Accepts a JSON string or a pre-parsed object. Optional `title` is
+  // prepended as an H1 heading (falling back to "Transcript"). Returns "" on
+  // garbage or when there are no captions.
+  function jsonToMarkdown(jsonText, title) {
     var data = jsonText;
     if (typeof jsonText === "string") {
       try {
@@ -121,7 +137,7 @@
         text: normalizeSpaces(typeof r.text === "string" ? r.text : ""),
       });
     }
-    return renderSegments(groupBySpeaker(entries));
+    return withTitle(title, renderSegments(groupBySpeaker(entries)));
   }
 
   // Convert WebVTT (with `<v Speaker>` voice tags) to Markdown.
@@ -129,8 +145,9 @@
   //   [optional cue identifier line]
   //   HH:MM:SS.mmm --> HH:MM:SS.mmm [cue settings]
   //   <v Speaker>payload</v>   (payload may span multiple lines)
-  // Returns "" on unparseable input.
-  function vttToMarkdown(vttText) {
+  // Optional `title` is prepended as an H1 heading (falling back to
+  // "Transcript"). Returns "" on unparseable input.
+  function vttToMarkdown(vttText, title) {
     if (typeof vttText !== "string") return "";
 
     // Strip BOM, normalize newlines, drop the WEBVTT header (everything up
@@ -170,7 +187,7 @@
 
       entries.push({ speaker: speaker, start: start, end: end, text: text });
     }
-    return renderSegments(groupBySpeaker(entries));
+    return withTitle(title, renderSegments(groupBySpeaker(entries)));
   }
 
   return { jsonToMarkdown, vttToMarkdown };

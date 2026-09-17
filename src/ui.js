@@ -148,7 +148,16 @@
       dlBtn.disabled = false;
     }
 
-    return { setStatus: setStatus, setReady: setReady, host: host };
+    // Transient feedback (e.g. "Copied!") without disturbing the ready state:
+    // buttons stay enabled and currentMarkdown is left intact so the user can
+    // copy again or download immediately after.
+    function notify(text, cls) {
+      statusEl.textContent = text == null ? "" : String(text);
+      statusEl.classList.toggle("is-ready", cls === "ready");
+      statusEl.classList.toggle("is-error", cls === "error");
+    }
+
+    return { setStatus: setStatus, setReady: setReady, notify: notify, host: host };
   }
 
   return { createFloatingUI: createFloatingUI };
