@@ -1,0 +1,16 @@
+{
+  "entries": [
+    { "speakerDisplayName": "Alice Chen", "startOffset": 150000, "endOffset": 152500, "text": "Good morning everyone, let's get started with the standup." },
+    { "speakerDisplayName": "Bob Martinez", "startOffset": 154000, "endOffset": 156500, "text": "Morning Alice. I finished the transcript export pipeline yesterday." },
+    { "speakerDisplayName": "Alice Chen", "startOffset": 158000, "endOffset": 160500, "text": "Great, did the markdown converter pass the escape cases?" },
+    { "speakerDisplayName": "Bob Martinez", "startOffset": 162000, "endOffset": 164500, "text": "Yes, all forty eight smoke assertions are green now." },
+    { "speakerDisplayName": "Alice Chen", "startOffset": 166000, "endOffset": 168500, "text": "Perfect. What about the VTT fallback path?" },
+    { "speakerDisplayName": "Bob Martinez", "startOffset": 170000, "endOffset": 172500, "text": "Covered too, including multi-line payloads and missing voice tags." },
+    { "speakerDisplayName": "Alice Chen", "startOffset": 174000, "endOffset": 176500, "text": "Nice. I'll review the integration harness this afternoon." },
+    { "speakerDisplayName": "Bob Martinez", "startOffset": 178000, "endOffset": 180500, "text": "Sounds good, ping me if the fixture server needs more routes." },
+    { "speakerDisplayName": "Alice Chen", "startOffset": 182000, "endOffset": 184500, "text": "Will do. Any blockers on the service worker download path?" },
+    { "speakerDisplayName": "Bob Martinez", "startOffset": 186000, "endOffset": 188500, "text": "None, the data URI path works for payloads under two megabytes." },
+    { "speakerDisplayName": "Alice Chen", "startOffset": 190000, "endOffset": 192500, "text": "Excellent, then the offscreen blob path only matters for large ones." },
+    { "speakerDisplayName": "Bob Martinez", "startOffset": 194000, "endOffset": 196500, "text": "Exactly. I'll wrap up the remaining edge cases before lunch." }
+  ]
+}

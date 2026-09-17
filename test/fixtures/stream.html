@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" href="data:," />
+  <title>SharePoint Stream transcript fixture</title>
+</head>
+<body>
+  <h1>SharePoint Stream transcript fixture</h1>
+  <p id="status">loading&hellip;</p>
+  <script>
+    // Fetch the transcript metadata endpoint on load. The MAIN-world hook in
+    // intercept.js patches window.fetch, observes this response, and posts a
+    // TTC_TRANSCRIPT_METADATA message to the isolated-world content script.
+    (async function () {
+      try {
+        var res = await fetch('/_api/v2.1/drives/me/items/transcripts');
+        var json = await res.json();
+        window.__fixtureMetadata = json;
+        document.getElementById('status').textContent = 'metadata fetched';
+      } catch (e) {
+        window.__fixtureError = String((e && e.message) || e);
+        document.getElementById('status').textContent = 'error: ' + window.__fixtureError;
+      }
+    })();
+  </script>
+</body>
+</html>

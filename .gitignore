@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Runtime/test artifacts
+*.log
+test/fixtures/certs/
+*.md.download
+/tmp/
+
+# Local environment
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OhMyOpenCode / CodeGraph internal state
+.omo/
+.codegraph

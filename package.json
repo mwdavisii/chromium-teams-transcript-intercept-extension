@@ -1,0 +1,15 @@
+{
+  "name": "teams-transcript-capture",
+  "version": "0.1.0",
+  "description": "Chrome MV3 extension that captures Microsoft Teams meeting transcripts as Markdown via SharePoint/Stream network interception.",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:unit": "node --test test/markdown.test.js test/normalize.test.js test/time.test.js",
+    "test:integration": "node --test test/integration.test.js",
+    "lint:syntax": "node --check background.js content.js intercept.js offscreen.js src/*.js test/*.test.js test/server.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

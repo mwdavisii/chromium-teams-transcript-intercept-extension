@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "teams-transcript-capture",
+  "version": "0.1.0",
+  "description": "Capture Microsoft Teams meeting transcripts (via SharePoint/Stream) for sovereign-cloud-safe use.",
+  "permissions": [
+    "downloads",
+    "clipboardWrite",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://*.teams.microsoft.com/*",
+    "https://*.sharepoint.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.sharepoint.com/*"],
+      "js": ["intercept.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://*.sharepoint.com/*"],
+      "js": ["src/normalize.js", "src/time.js", "src/markdown.js", "src/ui.js", "content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "media": {
+    "transcripts": [
+      {
+        "id": "transcript-001",
+        "displayName": "Standup 2026-09-17",
+        "languageTag": "en-US",
+        "isDefault": true,
+        "temporaryDownloadUrl": "https://fakefixture.sharepoint.com:9876/transcript-content"
+      }
+    ]
+  }
+}
