@@ -42,7 +42,10 @@
     "  color: #1f2328;",
     "  -webkit-font-smoothing: antialiased;",
     "}",
+    ".ttc-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }",
     ".ttc-status {",
+    "  flex: 1;",
+    "  min-width: 0;",
     "  font-size: 12px;",
     "  color: #57606a;",
     "  min-height: 16px;",
@@ -50,6 +53,20 @@
     "}",
     ".ttc-status.is-ready { color: #1a7f37; font-weight: 600; }",
     ".ttc-status.is-error { color: #cf222e; }",
+    ".ttc-close {",
+    "  appearance: none;",
+    "  border: none;",
+    "  background: transparent;",
+    "  color: #57606a;",
+    "  cursor: pointer;",
+    "  padding: 2px 6px;",
+    "  margin: -2px -6px -2px 0;",
+    "  border-radius: 6px;",
+    "  font-size: 18px;",
+    "  line-height: 1;",
+    "  font-weight: 400;",
+    "}",
+    ".ttc-close:hover { background: #eef1f4; color: #1f2328; }",
     ".ttc-actions { display: flex; gap: 8px; }",
     ".ttc-btn {",
     "  box-sizing: border-box;",
@@ -102,7 +119,10 @@
     rootEl.setAttribute("aria-live", "polite");
     rootEl.innerHTML =
       '<div class="ttc-panel">' +
-      '  <div class="ttc-status">Waiting for transcript…</div>' +
+      '  <div class="ttc-header">' +
+      '    <div class="ttc-status">Waiting for transcript…</div>' +
+      '    <button type="button" class="ttc-close" data-action="close" aria-label="Close transcript panel">×</button>' +
+      "  </div>" +
       '  <div class="ttc-actions">' +
       '    <button type="button" class="ttc-btn" data-action="copy" disabled>Copy .md</button>' +
       '    <button type="button" class="ttc-btn primary" data-action="download" disabled>Download .md</button>' +
@@ -115,6 +135,7 @@
     var statusEl = rootEl.querySelector(".ttc-status");
     var copyBtn = rootEl.querySelector('[data-action="copy"]');
     var dlBtn = rootEl.querySelector('[data-action="download"]');
+    var closeBtn = rootEl.querySelector('[data-action="close"]');
     var currentMarkdown = null;
 
     copyBtn.addEventListener("click", function () {
@@ -122,6 +143,9 @@
     });
     dlBtn.addEventListener("click", function () {
       if (onDownload && currentMarkdown !== null) onDownload(currentMarkdown);
+    });
+    closeBtn.addEventListener("click", function () {
+      if (host.parentNode) host.parentNode.removeChild(host);
     });
 
     // Set idle/error status and disable both buttons (not ready).

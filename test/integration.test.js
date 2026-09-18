@@ -160,6 +160,28 @@ function clickCopyButton(page) {
   });
 }
 
+function clickCloseButton(page) {
+  return page.evaluate(() => {
+    const host = Array.from(document.querySelectorAll('div')).find(
+      (d) => d.shadowRoot && d.shadowRoot.querySelector('[data-action="close"]')
+    );
+    if (!host) throw new Error('TTC panel host not found');
+    const btn = host.shadowRoot.querySelector('[data-action="close"]');
+    if (!btn) throw new Error('close button not found');
+    btn.click();
+    return true;
+  });
+}
+
+function panelExists(page) {
+  return page.evaluate(() => {
+    const host = Array.from(document.querySelectorAll('div')).find(
+      (d) => d.shadowRoot && d.shadowRoot.querySelector('.ttc-status')
+    );
+    return !!host;
+  });
+}
+
 // ---------------------------------------------------------------------------
 // The test.
 // ---------------------------------------------------------------------------
@@ -345,6 +367,12 @@ test('extension captures local transcript, shows ready UI, downloads markdown', 
     } else {
       t.diagnostic('clipboard-read denied by headless browser; copy verified via "Copied!" ack');
     }
+
+    await clickCloseButton(page);
+    assert.ok(
+      !(await panelExists(page)),
+      'close button should remove the floating panel from the DOM'
+    );
   } finally {
     if (context) {
       try {
