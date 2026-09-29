@@ -1,7 +1,100 @@
 // background.js — MV3 service worker for teams-transcript-capture.
-// Hosts the TTC_DOWNLOAD pipeline: small payloads go straight to a data: URI;
+// Hosts activation and the TTC_DOWNLOAD pipeline: small payloads go straight to a data: URI;
 // large payloads route through the offscreen document for Blob/ObjectURL
 // construction (service workers can't call URL.createObjectURL).
+
+const TTC_ENABLED_STORAGE_KEY = "enabled";
+const TTC_TOGGLE_MENU_ID = "ttc-toggle-capture";
+const TTC_CONTENT_SCRIPT_IDS = ["ttc-intercept", "ttc-capture"];
+
+// These scripts are registered only while capture is enabled. Static manifest
+// declarations would inject them into every SharePoint page even when disabled.
+const TTC_CONTENT_SCRIPTS = [
+  {
+    id: "ttc-intercept",
+    matches: ["https://*.sharepoint.com/*"],
+    js: ["intercept.js"],
+    runAt: "document_start",
+    allFrames: true,
+    world: "MAIN",
+    persistAcrossSessions: true,
+  },
+  {
+    id: "ttc-capture",
+    matches: ["https://*.sharepoint.com/*"],
+    js: ["src/normalize.js", "src/time.js", "src/markdown.js", "src/ui.js", "content.js"],
+    runAt: "document_idle",
+    allFrames: true,
+    persistAcrossSessions: true,
+  },
+];
+
+function updateToggleMenu(enabled) {
+  const title = enabled ? "Disable Transcript Capture" : "Enable Transcript Capture";
+  chrome.contextMenus.update(TTC_TOGGLE_MENU_ID, { title }, () => {
+    // It is harmless if startup has not created the menu yet.
+    void chrome.runtime.lastError;
+  });
+  chrome.action.setTitle({ title });
+}
+
+async function setCaptureEnabled(enabled) {
+  await chrome.storage.local.set({ [TTC_ENABLED_STORAGE_KEY]: enabled });
+  await unregisterCaptureScripts();
+  if (enabled) {
+    await chrome.scripting.registerContentScripts(TTC_CONTENT_SCRIPTS);
+  }
+  updateToggleMenu(enabled);
+}
+
+async function unregisterCaptureScripts() {
+  const registered = await chrome.scripting.getRegisteredContentScripts();
+  const registeredIds = new Set(registered.map((script) => script.id));
+  const ids = TTC_CONTENT_SCRIPT_IDS.filter((id) => registeredIds.has(id));
+  if (ids.length > 0) {
+    await chrome.scripting.unregisterContentScripts({ ids });
+  }
+}
+
+async function initializeCaptureToggle() {
+  const stored = await chrome.storage.local.get(TTC_ENABLED_STORAGE_KEY);
+  // New installs (and upgrades from the prior always-on version) start off.
+  const enabled = stored[TTC_ENABLED_STORAGE_KEY] === true;
+  await unregisterCaptureScripts();
+  if (enabled) {
+    await chrome.scripting.registerContentScripts(TTC_CONTENT_SCRIPTS);
+  }
+
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: TTC_TOGGLE_MENU_ID,
+      title: enabled ? "Disable Transcript Capture" : "Enable Transcript Capture",
+      contexts: ["action"],
+    });
+  });
+  chrome.action.setTitle({ title: enabled ? "Disable Transcript Capture" : "Enable Transcript Capture" });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  initializeCaptureToggle().catch((err) => {
+    console.error("[TTC] activation initialization failed:", err);
+  });
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  initializeCaptureToggle().catch((err) => {
+    console.error("[TTC] activation initialization failed:", err);
+  });
+});
+
+chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId !== TTC_TOGGLE_MENU_ID) return;
+  chrome.storage.local.get(TTC_ENABLED_STORAGE_KEY).then((stored) => {
+    return setCaptureEnabled(stored[TTC_ENABLED_STORAGE_KEY] !== true);
+  }).catch((err) => {
+    console.error("[TTC] activation toggle failed:", err);
+  });
+});
 
 const TTC_LARGE_PAYLOAD_THRESHOLD = 2_000_000;
 const TTC_OFFSCREEN_URL = "offscreen.html";

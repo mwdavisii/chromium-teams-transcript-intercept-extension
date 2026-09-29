@@ -6,7 +6,7 @@ When you open a meeting's **Transcript** tab, the Teams client renders the trans
 
 ## Layout
 
-- `manifest.json` — MV3 manifest. Permissions: `downloads`, `clipboardWrite`, `offscreen`. Hosts: `*.teams.microsoft.com` (future use, no content scripts), `*.sharepoint.com`.
+- `manifest.json` — MV3 manifest. Content scripts are dynamically registered only while capture is enabled. Hosts: `*.teams.microsoft.com` (future use, no content scripts), `*.sharepoint.com`.
 - `intercept.js` — MAIN-world content script injected at `document_start` on `*.sharepoint.com`. Monkey-patches `fetch` / `XMLHttpRequest` to observe transcript metadata and pass it to the isolated world.
 - `content.js` — isolated-world content script at `document_idle` on `*.sharepoint.com`. Receives metadata, fetches the transcript (`?format=json`), converts to Markdown, and drives the floating UI.
 - `src/normalize.js` — normalizes the three metadata JSON shapes into `{temporaryDownloadUrl, displayName, languageTag}`.
@@ -37,5 +37,9 @@ This extension targets `https://*.teams.microsoft.com/*` and `https://*.sharepoi
 
 1. Open `chrome://extensions`, enable **Developer mode**.
 2. Click **Load unpacked** and select this directory.
-3. Open a Teams meeting and click the **Transcript** tab.
-4. A floating panel appears in the bottom-right of the transcript pane, transitions to **"Transcript ready: N entries"**, then click **Copy .md** or **Download .md**.
+3. Right-click the extension's toolbar icon and choose **Enable Transcript Capture**. Reload the SharePoint transcript page after enabling.
+4. Open a Teams meeting and click the **Transcript** tab. A floating panel appears in the bottom-right of the transcript pane, transitions to **"Transcript ready: N entries"**, then click **Copy .md** or **Download .md**.
+
+## Enable / disable capture
+
+Capture is disabled by default, so no extension code loads into SharePoint pages until you explicitly enable it. Right-click the extension's toolbar icon and choose **Enable Transcript Capture**; reload the transcript page to start capture. Use the same menu and choose **Disable Transcript Capture** when you are finished. The setting persists across browser restarts. A script that is already running in an open page remains there until that page is reloaded, so reload after either change for it to take effect immediately.
