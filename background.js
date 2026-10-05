@@ -59,7 +59,11 @@ async function unregisterCaptureScripts() {
 async function initializeCaptureToggle() {
   const stored = await chrome.storage.local.get(TTC_ENABLED_STORAGE_KEY);
   // New installs (and upgrades from the prior always-on version) start off.
+  // Existing user choices are preserved.
   const enabled = stored[TTC_ENABLED_STORAGE_KEY] === true;
+  if (!(TTC_ENABLED_STORAGE_KEY in stored)) {
+    await chrome.storage.local.set({ [TTC_ENABLED_STORAGE_KEY]: false });
+  }
   await unregisterCaptureScripts();
   if (enabled) {
     await chrome.scripting.registerContentScripts(TTC_CONTENT_SCRIPTS);
