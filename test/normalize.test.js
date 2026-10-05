@@ -3,7 +3,11 @@
 
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { extractTranscriptUrl } = require("../src/normalize.js");
+const {
+  extractTranscriptUrl,
+  isStreamTranscriptUrl,
+  rewriteStreamTranscriptUrl,
+} = require("../src/normalize.js");
 
 // ---------------------------------------------------------------------------
 // Shape 1 — data.media.transcripts[]
@@ -143,4 +147,62 @@ test("extractTranscriptUrl: displayName and languageTag null when absent", () =>
   assert.equal(result.temporaryDownloadUrl, "http://bare");
   assert.equal(result.displayName, null);
   assert.equal(result.languageTag, null);
+});
+
+// ---------------------------------------------------------------------------
+// Stream-content URL rewrite (recorded meetings)
+// ---------------------------------------------------------------------------
+
+test("isStreamTranscriptUrl: true for /content endpoint URLs", () => {
+  assert.equal(
+    isStreamTranscriptUrl("https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/media/transcripts/t/content?token=abc"),
+    true
+  );
+});
+
+test("isStreamTranscriptUrl: true for /streamContent URLs", () => {
+  assert.equal(
+    isStreamTranscriptUrl("https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/streamContent?token=abc"),
+    true
+  );
+});
+
+test("isStreamTranscriptUrl: false for plain transcript metadata URLs", () => {
+  assert.equal(
+    isStreamTranscriptUrl("https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/media/transcripts"),
+    false
+  );
+  assert.equal(
+    isStreamTranscriptUrl("https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i?$select=media/transcripts"),
+    false
+  );
+});
+
+test("isStreamTranscriptUrl: false for non-URL / empty input", () => {
+  assert.equal(isStreamTranscriptUrl(""), false);
+  assert.equal(isStreamTranscriptUrl(null), false);
+  assert.equal(isStreamTranscriptUrl("not a url"), false);
+});
+
+test("rewriteStreamTranscriptUrl: rewrites /content to /streamContent with VTT params", () => {
+  const input = "https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/media/transcripts/t/content?token=abc&other=xyz";
+  const expected = "https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/media/transcripts/t/streamContent?is=1&applymediaedits=false";
+  assert.equal(rewriteStreamTranscriptUrl(input), expected);
+});
+
+test("rewriteStreamTranscriptUrl: replaces /streamContent query with VTT params", () => {
+  const input = "https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/streamContent?token=abc&other=xyz";
+  const expected = "https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/streamContent?is=1&applymediaedits=false";
+  assert.equal(rewriteStreamTranscriptUrl(input), expected);
+});
+
+test("rewriteStreamTranscriptUrl: leaves ordinary transcript URLs unchanged", () => {
+  const input = "https://contoso.sharepoint.com/_api/v2.1/drives/d/items/i/media/transcripts";
+  assert.equal(rewriteStreamTranscriptUrl(input), input);
+});
+
+test("rewriteStreamTranscriptUrl: passes through invalid / empty input", () => {
+  assert.equal(rewriteStreamTranscriptUrl(""), "");
+  assert.equal(rewriteStreamTranscriptUrl(null), null);
+  assert.equal(rewriteStreamTranscriptUrl("not a url"), "not a url");
 });

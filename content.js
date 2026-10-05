@@ -40,10 +40,10 @@ const BEARER_POLL_INTERVAL_MS = 25;
 
 // Resolve extractTranscriptUrl regardless of load style: src/normalize.js
 // either attached itself to window.TTCNormalize (script tag) or was inlined.
-const { extractTranscriptUrl } =
+const { extractTranscriptUrl, isStreamTranscriptUrl, rewriteStreamTranscriptUrl } =
   typeof window !== "undefined" && window.TTCNormalize
     ? window.TTCNormalize
-    : { extractTranscriptUrl: () => null };
+    : { extractTranscriptUrl: () => null, isStreamTranscriptUrl: () => false, rewriteStreamTranscriptUrl: (u) => u };
 
 // Converters for the captured raw text. markdown.js requires TTCTime loaded
 // first (manifest js ordering guarantees it) and attaches as window.TTCMarkdown.
@@ -185,10 +185,29 @@ async function fetchWithFallback(url) {
 
 async function fetchAndStoreTranscript(transcriptUrl) {
   const rewritten = applyMcasRewrite(transcriptUrl);
-  const jsonUrl = buildJsonUrl(rewritten);
 
   await waitForBearerToken();
 
+  // Meetings that were both recorded and transcribed hand us a URL that points
+  // at the encrypted stream endpoint. Those URLs must be rewritten to the
+  // plaintext WebVTT endpoint and fetched directly — appending ?format=json
+  // or asking for JSON content-type makes the request fail.
+  if (isStreamTranscriptUrl(rewritten)) {
+    const streamUrl = rewriteStreamTranscriptUrl(rewritten);
+    console.log("[TTC] recording transcript URL detected, fetching VTT stream", streamUrl);
+    const vttRes = await fetchWithFallback(streamUrl);
+    if (!vttRes.ok) {
+      throw new Error("recording VTT stream fetch failed: HTTP " + vttRes.status);
+    }
+    transcriptRawText = vttRes.text;
+    transcriptFormat = "vtt";
+    transcriptData = null;
+    console.log("[TTC] recording transcript VTT stored (%d bytes)", transcriptRawText.length);
+    finishConversion();
+    return;
+  }
+
+  const jsonUrl = buildJsonUrl(rewritten);
   let res = await fetchWithFallback(jsonUrl);
   if (!res.ok) {
     throw new Error("transcript fetch failed: HTTP " + res.status);

@@ -1,8 +1,10 @@
 // src/normalize.js
 // Pure module: normalize the three SharePoint/Stream transcript-metadata JSON
 // shapes into a single { temporaryDownloadUrl, displayName, languageTag }
-// object. No DOM access — loadable in Node for tests and in Chrome as a plain
-// script before content.js (manifest `js` array ordering).
+// object and rewrite recording transcript download URLs so they return
+// plaintext VTT instead of encrypted stream content. No DOM access — loadable
+// in Node for tests and in Chrome as a plain script before content.js
+// (manifest `js` array ordering).
 //
 // Shapes handled:
 //   1. data.media?.transcripts[]  — Graph API-style; prefer entry where
@@ -45,6 +47,44 @@
     };
   }
 
+  // Detect SharePoint/Stream transcript download URLs that point at the
+  // encrypted stream endpoint rather than the plaintext VTT we can parse.
+  //
+  // For meetings that were both recorded and transcribed, Microsoft stores
+  // the transcript as a secondary stream inside the MP4 and the metadata's
+  // `temporaryDownloadUrl` may end in `/content` or be a `/streamContent` URL.
+  // Hitting those directly returns encrypted bytes; appending `?format=json`
+  // to them is also wrong. We rewrite them to `/streamContent?is=1&
+  // applymediaedits=false`, which returns the WebVTT file. The regex anchors
+  // on `/content` at the end of the path so URLs such as `/contents/` are not
+  // accidentally rewritten.
+  function isStreamTranscriptUrl(url) {
+    if (typeof url !== "string" || !url) return false;
+    try {
+      const u = new URL(url);
+      return u.pathname.endsWith("/content") || u.pathname.includes("/streamContent");
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function rewriteStreamTranscriptUrl(url) {
+    if (typeof url !== "string" || !url) return url;
+    try {
+      const u = new URL(url);
+      if (u.pathname.endsWith("/content")) {
+        u.pathname = u.pathname.slice(0, -"/content".length) + "/streamContent";
+      }
+      if (u.pathname.includes("/streamContent")) {
+        u.search = "?is=1&applymediaedits=false";
+        return u.toString();
+      }
+      return url;
+    } catch (e) {
+      return url;
+    }
+  }
+
   function extractTranscriptUrl(data) {
     if (!data || typeof data !== "object") return null;
 
@@ -66,5 +106,5 @@
     return null;
   }
 
-  return { extractTranscriptUrl };
+  return { extractTranscriptUrl, isStreamTranscriptUrl, rewriteStreamTranscriptUrl };
 });
